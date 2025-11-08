@@ -1,0 +1,28 @@
+{
+  "name": "product-fetcher",
+  "version": "1.0.0",
+  "description": "Utility to fetch metadata from product pages",
+  "main": "dist/fetchProductMetadata.js",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/fetchProductMetadata.js",
+    "fetch": "ts-node src/fetchProductMetadata.ts"
+  },
+  "keywords": [
+    "product",
+    "metadata",
+    "scraper"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.8",
+    "cheerio": "^1.0.0-rc.12"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
