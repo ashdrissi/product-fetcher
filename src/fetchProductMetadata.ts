@@ -117,42 +117,192 @@ function extractPrice($: cheerio.CheerioAPI): string | null {
 }
 
 /**
- * Extract image URLs from Open Graph metadata and large <img> elements.
+ * Detect the e-commerce platform from the URL and HTML
  */
-function extractImages($: cheerio.CheerioAPI): string[] {
-  const images = new Set<string>();
+function detectPlatform($: cheerio.CheerioAPI, url: string): string {
+  const urlLower = url.toLowerCase();
+  const htmlContent = $.html().toLowerCase();
 
+  if (urlLower.includes('amazon.')) return 'amazon';
+  if (urlLower.includes('ebay.')) return 'ebay';
+  if (urlLower.includes('etsy.')) return 'etsy';
+  if (urlLower.includes('walmart.')) return 'walmart';
+  if (urlLower.includes('target.')) return 'target';
+
+  // Detect by meta tags or generators
+  if (htmlContent.includes('shopify') || $('meta[name="shopify-checkout-api-token"]').length) return 'shopify';
+  if (htmlContent.includes('woocommerce') || $('meta[name="generator"][content*="woocommerce"]').length) return 'woocommerce';
+  if (htmlContent.includes('magento') || $('script[src*="mage"]').length) return 'magento';
+  if (htmlContent.includes('bigcommerce')) return 'bigcommerce';
+
+  return 'generic';
+}
+
+/**
+ * Extract main product image URLs with platform-specific patterns
+ */
+function extractImages($: cheerio.CheerioAPI, url: string): string[] {
+  const images: string[] = [];
+  const platform = detectPlatform($, url);
+
+  // Priority 1: Open Graph images (usually the main product image)
   const ogImageSelectors = [
     'meta[property="og:image"]',
     'meta[property="og:image:url"]',
-    'meta[property="og:image:secure_url"]'
+    'meta[property="og:image:secure_url"]',
+    'meta[name="twitter:image"]'
   ];
 
   for (const selector of ogImageSelectors) {
     const content = $(selector).attr("content");
-    if (content) {
-      images.add(content);
+    if (content && !images.includes(content)) {
+      images.push(content);
     }
   }
 
-  $("img").each((_, element) => {
-    const src = $(element).attr("src") || $(element).attr("data-src");
-    if (!src) {
-      return;
-    }
+  // Priority 2: Platform-specific selectors for main product images
+  const platformSelectors: { [key: string]: string[] } = {
+    amazon: [
+      '#landingImage',
+      '#imgTagWrapperId img',
+      '#imageBlock img',
+      '.a-dynamic-image',
+      '#altImages img[src*="._AC_"]',
+      'img[data-a-dynamic-image]'
+    ],
+    shopify: [
+      '.product__media img',
+      '.product-single__photo img',
+      '.product__main-photos img',
+      '.product-image-main img',
+      '[data-product-featured-media] img',
+      '.product-photo-container img'
+    ],
+    woocommerce: [
+      '.woocommerce-product-gallery__image img',
+      '.wp-post-image',
+      '.product-images img',
+      '.product-image img',
+      'figure.woocommerce-product-gallery__wrapper img'
+    ],
+    ebay: [
+      '#icImg',
+      '.ux-image-carousel-item img',
+      '.ux-image-filmstrip-carousel-item img',
+      '[data-testid="ux-image-carousel-item"] img'
+    ],
+    etsy: [
+      '[data-carousel-pane-item] img',
+      '.wt-max-width-full img',
+      '[data-listing-image] img'
+    ],
+    walmart: [
+      '.hover-zoom-hero-image',
+      '[data-testid="hero-image-container"] img',
+      '.prod-hero-image img'
+    ],
+    target: [
+      '[data-test="image-gallery-item"] img',
+      '.slides img',
+      '[data-test="product-image"] img'
+    ],
+    magento: [
+      '.product.media img',
+      '.fotorama__stage__frame img',
+      '.gallery-placeholder img'
+    ],
+    bigcommerce: [
+      '.productView-image img',
+      '[data-image-gallery-main] img',
+      '.productView-thumbnail img'
+    ],
+    generic: [
+      '[itemprop="image"]',
+      '.product-image img',
+      '.product-photo img',
+      '.product-gallery img',
+      '#product-image img',
+      '[class*="product"][class*="image"] img',
+      '[id*="product"][id*="image"] img'
+    ]
+  };
 
-    const width = Number($(element).attr("width"));
-    const height = Number($(element).attr("height"));
-    const isLarge = !Number.isNaN(width) && !Number.isNaN(height)
-      ? width >= 300 || height >= 300
-      : true;
+  const selectors = platformSelectors[platform] || platformSelectors.generic;
 
-    if (isLarge) {
-      images.add(src);
+  for (const selector of selectors) {
+    $(selector).each((_, element) => {
+      let src = $(element).attr("src")
+        || $(element).attr("data-src")
+        || $(element).attr("data-lazy")
+        || $(element).attr("data-zoom-image")
+        || $(element).attr("data-image");
+
+      // For Amazon's dynamic images, extract from data-a-dynamic-image
+      if (platform === 'amazon' && !src) {
+        const dynamicData = $(element).attr("data-a-dynamic-image");
+        if (dynamicData) {
+          try {
+            const imageObj = JSON.parse(dynamicData);
+            const urls = Object.keys(imageObj);
+            if (urls.length > 0) {
+              src = urls[0]; // Get the first (usually highest quality) URL
+            }
+          } catch {
+            // Invalid JSON, continue
+          }
+        }
+      }
+
+      if (src && !images.includes(src)) {
+        // Filter out small images, icons, and logos
+        if (!isSmallOrIconImage(src)) {
+          images.push(src);
+        }
+      }
+    });
+
+    // Limit to 10 images to avoid too many
+    if (images.length >= 10) break;
+  }
+
+  // Priority 3: Fallback to schema.org images
+  $('[itemtype*="schema.org/Product"] img[itemprop="image"]').each((_, element) => {
+    const src = $(element).attr("src");
+    if (src && !images.includes(src) && images.length < 10) {
+      images.push(src);
     }
   });
 
-  return Array.from(images);
+  // Return unique images, with OG images first
+  return images;
+}
+
+/**
+ * Check if an image URL is likely a small icon or logo
+ */
+function isSmallOrIconImage(src: string): boolean {
+  const srcLower = src.toLowerCase();
+
+  // Common patterns for icons/logos/small images
+  const excludePatterns = [
+    'logo',
+    'icon',
+    'sprite',
+    'badge',
+    'banner',
+    'button',
+    '/icons/',
+    'favicon',
+    'thumbnail',
+    'avatar',
+    '1x1',
+    '16x16',
+    '32x32',
+    '64x64',
+    'spacer.gif'
+  ];
+
+  return excludePatterns.some(pattern => srcLower.includes(pattern));
 }
 
 /**
@@ -253,7 +403,7 @@ export async function fetchProductMetadata(url: string): Promise<ProductMetadata
     metadata.store = extractStoreName($, url);
     metadata.storeLogo = extractStoreLogo($, url);
 
-    const images = extractImages($);
+    const images = extractImages($, url);
     images.forEach((imageUrl) => metadata.images.add(imageUrl));
 
     if (!metadata.price) {
