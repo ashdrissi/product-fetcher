@@ -11,6 +11,8 @@ export interface ProductMetadata {
   title: string | null;
   price: string | null;
   images: string[];
+  store: string | null;
+  storeLogo: string | null;
   error?: string;
 }
 
@@ -19,6 +21,8 @@ type MetadataAccumulator = {
   title: string | null;
   price: string | null;
   images: Set<string>;
+  store: string | null;
+  storeLogo: string | null;
 };
 
 /**
@@ -152,6 +156,75 @@ function extractImages($: cheerio.CheerioAPI): string[] {
 }
 
 /**
+ * Extract store/site name from the URL and metadata.
+ */
+function extractStoreName($: cheerio.CheerioAPI, url: string): string | null {
+  // Try Open Graph site name
+  const ogSiteName = $('meta[property="og:site_name"]').attr("content");
+  if (ogSiteName && ogSiteName.trim()) {
+    return ogSiteName.trim();
+  }
+
+  // Try application name
+  const appName = $('meta[name="application-name"]').attr("content");
+  if (appName && appName.trim()) {
+    return appName.trim();
+  }
+
+  // Extract from domain
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.replace(/^www\./, '');
+    const parts = hostname.split('.');
+    if (parts.length >= 2) {
+      // Capitalize first letter
+      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    }
+  } catch {
+    // Invalid URL, continue
+  }
+
+  return null;
+}
+
+/**
+ * Extract store logo from the page.
+ */
+function extractStoreLogo($: cheerio.CheerioAPI, url: string): string | null {
+  // Try various logo selectors
+  const logoSelectors = [
+    'meta[property="og:logo"]',
+    'link[rel="icon"]',
+    'link[rel="shortcut icon"]',
+    'link[rel="apple-touch-icon"]',
+    'img[class*="logo"]',
+    'img[id*="logo"]',
+    '.logo img',
+    '#logo img'
+  ];
+
+  for (const selector of logoSelectors) {
+    const element = $(selector).first();
+    const logoUrl = element.attr("content") || element.attr("href") || element.attr("src");
+
+    if (logoUrl && logoUrl.trim()) {
+      // Make absolute URL if relative
+      try {
+        const absoluteUrl = new URL(logoUrl, url).href;
+        return absoluteUrl;
+      } catch {
+        // If URL construction fails, return as is if it looks like a valid URL
+        if (logoUrl.startsWith('http')) {
+          return logoUrl;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Fetch and parse product metadata from the provided URL.
  */
 export async function fetchProductMetadata(url: string): Promise<ProductMetadata> {
@@ -159,6 +232,8 @@ export async function fetchProductMetadata(url: string): Promise<ProductMetadata
     title: null,
     price: null,
     images: new Set<string>(),
+    store: null,
+    storeLogo: null,
   };
 
   try {
@@ -175,6 +250,8 @@ export async function fetchProductMetadata(url: string): Promise<ProductMetadata
 
     metadata.title = extractTitle($);
     metadata.price = extractPrice($);
+    metadata.store = extractStoreName($, url);
+    metadata.storeLogo = extractStoreLogo($, url);
 
     const images = extractImages($);
     images.forEach((imageUrl) => metadata.images.add(imageUrl));
@@ -185,6 +262,8 @@ export async function fetchProductMetadata(url: string): Promise<ProductMetadata
         title: metadata.title,
         price: metadata.price,
         images: Array.from(metadata.images),
+        store: metadata.store,
+        storeLogo: metadata.storeLogo,
         error: "Price could not be determined from the page content.",
       };
     }
@@ -194,6 +273,8 @@ export async function fetchProductMetadata(url: string): Promise<ProductMetadata
       title: metadata.title,
       price: metadata.price,
       images: Array.from(metadata.images),
+      store: metadata.store,
+      storeLogo: metadata.storeLogo,
     };
   } catch (error) {
     const message =
@@ -204,6 +285,8 @@ export async function fetchProductMetadata(url: string): Promise<ProductMetadata
       title: metadata.title,
       price: metadata.price,
       images: Array.from(metadata.images),
+      store: metadata.store,
+      storeLogo: metadata.storeLogo,
       error: message,
     };
   }
