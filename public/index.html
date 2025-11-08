@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Fetcher API - Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="url"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="url"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result {
+            margin-top: 20px;
+        }
+
+        .result-item {
+            margin-bottom: 15px;
+        }
+
+        .result-item strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .product-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .product-images img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .store-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .store-logo {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #c00;
+        }
+
+        .success {
+            background: #efe;
+            color: #060;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #060;
+        }
+
+        .info-box {
+            background: #f0f4ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .info-box code {
+            background: #e0e7ff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .api-endpoint {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛍️ Product Fetcher API</h1>
+            <p>Fetch product metadata from any e-commerce site</p>
+        </div>
+
+        <div class="card">
+            <div class="info-box">
+                <h3>API Endpoints</h3>
+                <p><strong>GET:</strong> <code>/fetch?url=PRODUCT_URL</code></p>
+                <p><strong>POST:</strong> <code>/fetch</code> with JSON body: <code>{"url": "PRODUCT_URL"}</code></p>
+                <div class="api-endpoint" id="apiEndpoint">API URL will appear here</div>
+            </div>
+
+            <div class="input-group">
+                <label for="apiUrl">API Base URL (optional - for deployed API)</label>
+                <input type="url" id="apiUrl" placeholder="https://your-api.com (leave empty for local testing)">
+            </div>
+
+            <div class="input-group">
+                <label for="productUrl">Product URL</label>
+                <input type="url" id="productUrl" placeholder="https://www.amazon.com/..." required>
+            </div>
+
+            <button id="fetchButton" onclick="fetchProduct()">Fetch Product Details</button>
+
+            <div id="loadingContainer" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Fetching product details...</p>
+            </div>
+
+            <div id="resultContainer"></div>
+        </div>
+
+        <div class="card">
+            <h3 style="color: #667eea; margin-bottom: 15px;">Sample Product URLs to Try:</h3>
+            <ul style="list-style: none; padding: 0;">
+                <li style="margin-bottom: 10px;">
+                    <button onclick="setUrl('https://www.amazon.com/dp/B08N5WRWNW')" style="width: auto; padding: 8px 16px; font-size: 14px;">
+                        Amazon Product
+                    </button>
+                </li>
+                <li style="margin-bottom: 10px;">
+                    <button onclick="setUrl('https://www.ebay.com/itm/123456789')" style="width: auto; padding: 8px 16px; font-size: 14px;">
+                        eBay Product
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Update API endpoint display
+        document.getElementById('apiUrl').addEventListener('input', updateApiEndpoint);
+
+        function updateApiEndpoint() {
+            const apiUrl = document.getElementById('apiUrl').value || 'http://localhost:3000';
+            document.getElementById('apiEndpoint').textContent = `${apiUrl}/fetch`;
+        }
+
+        // Initialize on load
+        updateApiEndpoint();
+
+        function setUrl(url) {
+            document.getElementById('productUrl').value = url;
+        }
+
+        async function fetchProduct() {
+            const apiUrl = document.getElementById('apiUrl').value || 'http://localhost:3000';
+            const productUrl = document.getElementById('productUrl').value;
+            const button = document.getElementById('fetchButton');
+            const loadingContainer = document.getElementById('loadingContainer');
+            const resultContainer = document.getElementById('resultContainer');
+
+            if (!productUrl) {
+                resultContainer.innerHTML = '<div class="error">Please enter a product URL</div>';
+                return;
+            }
+
+            try {
+                // Validate URL
+                new URL(productUrl);
+            } catch {
+                resultContainer.innerHTML = '<div class="error">Please enter a valid URL</div>';
+                return;
+            }
+
+            button.disabled = true;
+            loadingContainer.style.display = 'block';
+            resultContainer.innerHTML = '';
+
+            try {
+                const response = await fetch(`${apiUrl}/fetch`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: productUrl })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Failed to fetch product data');
+                }
+
+                displayResult(data);
+            } catch (error) {
+                resultContainer.innerHTML = `
+                    <div class="error">
+                        <strong>Error:</strong> ${error.message}
+                        <br><br>
+                        <small>Make sure the API server is running. If testing locally, run: <code>npm run dev</code></small>
+                    </div>
+                `;
+            } finally {
+                button.disabled = false;
+                loadingContainer.style.display = 'none';
+            }
+        }
+
+        function displayResult(data) {
+            const resultContainer = document.getElementById('resultContainer');
+
+            let html = '<div class="result">';
+
+            if (data.error) {
+                html += `<div class="error"><strong>Warning:</strong> ${data.error}</div>`;
+            } else {
+                html += '<div class="success">Product details fetched successfully!</div>';
+            }
+
+            html += '<div class="result-item">';
+            html += '<strong>Title:</strong>';
+            html += `<p>${data.title || 'N/A'}</p>`;
+            html += '</div>';
+
+            html += '<div class="result-item">';
+            html += '<strong>Price:</strong>';
+            html += `<p>${data.price || 'N/A'}</p>`;
+            html += '</div>';
+
+            if (data.store) {
+                html += '<div class="result-item">';
+                html += '<strong>Store:</strong>';
+                html += '<div class="store-info">';
+                if (data.storeLogo) {
+                    html += `<img src="${data.storeLogo}" alt="${data.store}" class="store-logo">`;
+                }
+                html += `<span>${data.store}</span>`;
+                html += '</div>';
+                html += '</div>';
+            }
+
+            if (data.images && data.images.length > 0) {
+                html += '<div class="result-item">';
+                html += '<strong>Product Images:</strong>';
+                html += '<div class="product-images">';
+                data.images.forEach(img => {
+                    html += `<img src="${img}" alt="Product image" onerror="this.style.display='none'">`;
+                });
+                html += '</div>';
+                html += '</div>';
+            }
+
+            html += '<div class="result-item">';
+            html += '<strong>Raw JSON Response:</strong>';
+            html += `<pre style="background: #f5f5f5; padding: 15px; border-radius: 8px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>`;
+            html += '</div>';
+
+            html += '</div>';
+            resultContainer.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
