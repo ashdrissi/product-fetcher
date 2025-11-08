@@ -210,6 +210,26 @@
             margin: 10px 0;
             word-break: break-all;
         }
+
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+            margin-bottom: 20px;
+        }
+
+        .warning strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .hint {
+            font-size: 13px;
+            color: #666;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -220,6 +240,16 @@
         </div>
 
         <div class="card">
+            <div class="warning">
+                <strong>⚠️ Important: API Deployment Required</strong>
+                This is a static demo page. To use the API, you need to:
+                <ol style="margin: 10px 0 0 20px; padding: 0;">
+                    <li>Deploy the API to Vercel, Render, or Railway (see README)</li>
+                    <li>Enter your deployed API URL below, OR</li>
+                    <li>Run locally with <code>npm run dev</code> and use http://localhost:3000</li>
+                </ol>
+            </div>
+
             <div class="info-box">
                 <h3>API Endpoints</h3>
                 <p><strong>GET:</strong> <code>/fetch?url=PRODUCT_URL</code></p>
@@ -228,13 +258,15 @@
             </div>
 
             <div class="input-group">
-                <label for="apiUrl">API Base URL (optional - for deployed API)</label>
-                <input type="url" id="apiUrl" placeholder="https://your-api.com (leave empty for local testing)">
+                <label for="apiUrl">🔗 Step 1: Enter your API Base URL</label>
+                <input type="url" id="apiUrl" placeholder="https://your-deployed-api.vercel.app OR http://localhost:3000">
+                <div class="hint">Enter the URL where your API is deployed. Leave empty to use http://localhost:3000</div>
             </div>
 
             <div class="input-group">
-                <label for="productUrl">Product URL</label>
-                <input type="url" id="productUrl" placeholder="https://www.amazon.com/..." required>
+                <label for="productUrl">🛍️ Step 2: Enter the Product Page URL</label>
+                <input type="url" id="productUrl" placeholder="https://www.amazon.com/dp/B08N5WRWNW" required>
+                <div class="hint">Paste the full URL of the product page you want to fetch (e.g., Amazon, eBay, etc.)</div>
             </div>
 
             <button id="fetchButton" onclick="fetchProduct()">Fetch Product Details</button>
@@ -321,13 +353,20 @@
 
                 displayResult(data);
             } catch (error) {
-                resultContainer.innerHTML = `
+                let errorHtml = `
                     <div class="error">
-                        <strong>Error:</strong> ${error.message}
+                        <strong>❌ Error:</strong> ${error.message}
                         <br><br>
-                        <small>Make sure the API server is running. If testing locally, run: <code>npm run dev</code></small>
+                        <strong>Troubleshooting:</strong>
+                        <ul style="margin: 10px 0 0 20px; text-align: left;">
+                            <li>Make sure you entered your <strong>API URL</strong> in Step 1 (not a product URL)</li>
+                            <li>If testing locally: Run <code>npm run dev</code> and use <code>http://localhost:3000</code></li>
+                            <li>If deployed: Enter your Vercel/Render/Railway API URL (e.g., <code>https://your-app.vercel.app</code>)</li>
+                            <li>Check that the API is actually running and accessible</li>
+                        </ul>
                     </div>
                 `;
+                resultContainer.innerHTML = errorHtml;
             } finally {
                 button.disabled = false;
                 loadingContainer.style.display = 'none';
