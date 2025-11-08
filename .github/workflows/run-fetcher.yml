@@ -1,0 +1,44 @@
+name: Run product metadata fetcher
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Product page URL to fetch metadata from'
+        required: true
+  schedule:
+    - cron: '0 * * * *'
+  push:
+    branches: [ main ]
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Run fetcher
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          node dist/fetchProductMetadata.js "${{ github.event.inputs.url }}" | tee fetcher-output.json
+
+      - name: Upload metadata artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-metadata
+          path: fetcher-output.json
