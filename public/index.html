@@ -252,8 +252,9 @@
 
             <div class="info-box">
                 <h3>API Endpoints</h3>
-                <p><strong>GET:</strong> <code>/fetch?url=PRODUCT_URL</code></p>
-                <p><strong>POST:</strong> <code>/fetch</code> with JSON body: <code>{"url": "PRODUCT_URL"}</code></p>
+                <p><strong>Vercel:</strong> <code>/api/fetch</code></p>
+                <p><strong>Local:</strong> <code>/fetch</code></p>
+                <p><strong>Methods:</strong> GET (with ?url=...) or POST (with JSON body)</p>
                 <div class="api-endpoint" id="apiEndpoint">API URL will appear here</div>
             </div>
 
@@ -302,7 +303,9 @@
 
         function updateApiEndpoint() {
             const apiUrl = document.getElementById('apiUrl').value || 'http://localhost:3000';
-            document.getElementById('apiEndpoint').textContent = `${apiUrl}/fetch`;
+            // Use /api/fetch for Vercel deployments, /fetch for local
+            const endpoint = apiUrl.includes('vercel.app') ? '/api/fetch' : '/fetch';
+            document.getElementById('apiEndpoint').textContent = `${apiUrl}${endpoint}`;
         }
 
         // Initialize on load
@@ -337,7 +340,9 @@
             resultContainer.innerHTML = '';
 
             try {
-                const response = await fetch(`${apiUrl}/fetch`, {
+                // Use /api/fetch for Vercel deployments, /fetch for local
+                const endpoint = apiUrl.includes('vercel.app') ? '/api/fetch' : '/fetch';
+                const response = await fetch(`${apiUrl}${endpoint}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
